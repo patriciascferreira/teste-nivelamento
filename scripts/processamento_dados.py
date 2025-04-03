@@ -1,31 +1,33 @@
-import os
+import camelot
 import pandas as pd
+import zipfile
+import os
 
-# Diretório onde os arquivos CSV foram baixados
-download_dir = '../downloads'
-processed_dir = '../downloads/processed'
+# Caminhos dos arquivos
+input_pdf = '../downloads/processed/anexo_1.pdf'
+output_csv = '../downloads/processed/Rol_de_Procedimentos.csv'
+output_zip = f'../downloads/processed/Teste_Patricia.zip'
 
-# Garantir que o diretório de arquivos processados exista
-os.makedirs(processed_dir, exist_ok=True)
+# Extrair tabelas do PDF
+print('Extraindo tabelas do PDF...')
+tables = camelot.read_pdf(input_pdf, pages='1-end', flavor='stream')
 
-# Função para processar arquivos CSV
-def processar_csv(nome_arquivo):
-    try:
-        caminho_arquivo = os.path.join(download_dir, nome_arquivo)
-        df = pd.read_csv(caminho_arquivo)
-        
-        # Exemplo de limpeza de dados (Remover linhas duplicadas e NaN)
-        df = df.drop_duplicates().dropna()
+# Combinar todas as tabelas extraídas em um único DataFrame
+print('Concatenando tabelas extraídas...')
+df = pd.concat([table.df for table in tables], ignore_index=True)
 
-        # Salvar o arquivo processado
-        caminho_processado = os.path.join(processed_dir, f'processed_{nome_arquivo}')
-        df.to_csv(caminho_processado, index=False)
-        
-        print(f'Arquivo processado com sucesso: {caminho_processado}')
-    except Exception as e:
-        print(f'Erro ao processar {nome_arquivo}: {e}')
+# Substituir abreviações
+print('Substituindo abreviações...')
+df.replace({'OD': 'Órbita e Dentes', 'AMB': 'Ambulatorial'}, inplace=True)
 
-# Processar todos os arquivos CSV na pasta de downloads
-for arquivo in os.listdir(download_dir):
-    if arquivo.endswith('.csv'):
-        processar_csv(arquivo)
+# Salvar em CSV
+print('Salvando CSV...')
+df.to_csv(output_csv, index=False)
+
+# Compactar o CSV em um arquivo ZIP
+print('Compactando CSV...')
+with zipfile.ZipFile(output_zip, 'w') as zipf:
+    zipf.write(output_csv, os.path.basename(output_csv))
+
+print(f'Processo concluído! Arquivo ZIP gerado em: {output_zip}')
+
